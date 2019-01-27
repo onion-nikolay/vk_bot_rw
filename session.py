@@ -1,14 +1,15 @@
-import os, logging
+import logging
+import os
 
 import vk_api
 from vk_api.bot_longpoll import VkBotLongPoll, VkBotEventType
 from vk_api.exceptions import AuthError, ApiError
 
-from vk_requests import getManagers, sendMessage
-from game import game
+from vk_requests import get_managers, send_message
+from game import Game
 
 
-def getGroupId(logger):
+def get_group_id(logger):
     try:
         with open('data/id') as f:
             group_id = f.readline()
@@ -19,13 +20,14 @@ def getGroupId(logger):
             group_id = int(input('Please print id of VK group: '))
         except ValueError:
             logger.error('Group id should be a number!')
+            return -1
         with open('data/id', 'w') as f:
             f.write(str(group_id))
             f.close()
     return group_id
 
 
-def getToken(logger):
+def get_token(logger):
     try:
         with open('data/key') as f:
             token = f.readline()
@@ -39,11 +41,11 @@ def getToken(logger):
     return token
 
 
-def logger(name='main'):
+def new_logger(name='main'):
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
-    if (logger.hasHandlers()):
+    if logger.hasHandlers():
         logger.handlers.clear()
 
     file_handler = logging.FileHandler("{}.log".format(name))
@@ -58,8 +60,8 @@ def logger(name='main'):
 
 def session(logger):
     logger.info('Session started')
-    group_id = getGroupId(logger)
-    token = getToken(logger)
+    group_id = get_group_id(logger)
+    token = get_token(logger)
     try:
         vk_session = vk_api.VkApi(token=token)
     except AuthError as e:
@@ -68,16 +70,16 @@ def session(logger):
         os.remove('data/key')
         logger.info('Token removed.')
         return 1
-    logger.info('Authorized succesfully.')
+    logger.info('Authorized successfully.')
     try:
         longpoll = VkBotLongPoll(vk_session, group_id=group_id)
     except ApiError as e:
         logger.exception(e)
-        logger.error('Wring froup id')
+        logger.error('Wrong group id')
         os.remove('data/id')
         logger.info('Group id removed.')
         return 1
-    managers = getManagers(vk_session, group_id)
+    managers = get_managers(vk_session, group_id)
     for event in longpoll.listen():
         # New messages are interesting only
         if event.type != VkBotEventType.MESSAGE_NEW:
@@ -88,19 +90,18 @@ def session(logger):
         if msg.peer_id in managers:
             logger.info('Dev mode')
             if msg.text == 'STOP':
-                sendMessage(vk_session, 'Выключаюсь.', msg.peer_id, logger)
+                send_message(vk_session, 'Выключаюсь.', msg.peer_id, logger)
                 return -1
             else:
                 continue
         # Direct message from other user
         elif msg.peer_id < 2000000001:
             answer = 'К сожалению, сейчас здесь пусто. Бот открыт к предложениям по внутреннему наполнению. Stay tuned.'
-            sendMessage(vk_session, answer, msg.peer_id, logger)
+            send_message(vk_session, answer, msg.peer_id, logger)
             continue
         # Got it! A message for me from a chat.
         params = {'vk_session': vk_session, 'chat_id': msg.peer_id, 'peer_id': msg.from_id, 'logger': logger}
-        new_game = game(**params)
+        new_game = Game(**params)
         answer = new_game.run(msg.text.lower())
-        sendMessage(vk_session, answer, msg.peer_id, logger)
+        send_message(vk_session, answer, msg.peer_id, logger)
         continue
-
