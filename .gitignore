@@ -118,3 +118,6 @@ dmypy.json
 data/
 old/
 *.log
+
+# .idea
+.idea/
