@@ -8,7 +8,7 @@ def get_managers(vk_session, group_id):
     return [manager['id'] for manager in managers]
 
 
-def get_name(vk_session, user_id, format='full'):
+def get_name(vk_session, user_id, _format='full'):
     user = vk_session.method('users.get', {'user_ids': user_id})[0]
     if format == 'full':
         return user['first_name'] + ' ' + user['last_name']

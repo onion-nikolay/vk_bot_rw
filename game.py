@@ -1,12 +1,10 @@
-from typing import Any
-
-import typing
-
 import datetime
 import re
 from os.path import join as pjoin, exists
+
 import numpy.random
 from numpy import argmax
+
 from db_processing import db_read, db_write
 from vk_requests import get_name
 
@@ -39,11 +37,9 @@ class Game:
         else:
             return self.__keys[argmax(mask)]
 
-    @property
     def current_players(self):
         return [p[0] for p in db_read(self.db, 'get_players')]
 
-    @property
     def command_help(self):
         return """Присоединиться – присоединиться к "Пидору дня".
 Выбрать – выбрать пидора дня.
@@ -53,18 +49,15 @@ class Game:
 Помощь – посмотреть полный список комманд.
 Список команд пополняется (да, я туповат)."""
 
-    @property
     def command_undefined(self):
         return """Команда не распознана.
 Для вывода списка комманд набери "помощь"."""
 
-    @property
     def command_too_many(self):
         return """Несколько команд в одном запросе!
 Делать мне нечего – выбирать за такого пидора, как ты!
 Сначала определись, а потом пиши."""
 
-    @property
     def command_new_player(self):
         if db_read(self.db, 'personal', user_id=self.user_id):
             return 'Эй, ты уже в игре!'
@@ -72,7 +65,6 @@ class Game:
             db_write(self.db, 'new', user_id=self.user_id)
             return 'Добро пожаловать в игру!'
 
-    @property
     def command_personal_stats(self):
         name = get_name(self.vk_session, self.user_id)
         try:
@@ -83,13 +75,16 @@ class Game:
         if count > 0:
             if date is None:
                 date = 'я забыл, когда'
+            elif date == str(datetime.date.today()):
+                date = 'сегодня'
+            elif date == str(datetime.date.today() - datetime.timedelta(1)):
+                date = 'вчера'
             msg += '\nПоследний раз – {}.'.format(date)
         return msg
 
-    @property
     def command_play(self):
         global last_id
-        today = str(datetime.datetime.today())[:10]
+        today = str(datetime.date.today())
         # For case there are no dates in the DB.
         try:
             the_day, last_id = db_read(self.db, 'last_day')[0]
@@ -100,27 +95,25 @@ class Game:
             msg = 'Для тех, кто пропустил: сегодняшний пидор дня – {}!'.format(get_name(self.vk_session, last_id))
             return msg
 
-        if len(self.current_players) == 0:
+        if len(self.current_players()) == 0:
             return 'Никто еще не присоединился, вот пидоры.'
 
-        user_id = numpy.random.choice(self.current_players)
+        user_id = numpy.random.choice(self.current_players())
         db_write(self.db, 'increment', user_id=user_id)
         msg = 'Пидор дня - [id{}|{}]!'.format(user_id, get_name(self.vk_session, user_id))
         return msg
 
-    @property
     def command_players(self):
-        names = [get_name(self.vk_session, id) for id in self.current_players]
+        names = [get_name(self.vk_session, _id) for _id in self.current_players()]
         if len(names) == 0:
             return 'Какие участники? Никто еще не присоединился! Автопидоры!'
         msg = 'Всего игроков: {}, полный список: {}'. \
             format(len(names), ', '.join(names))
         return msg
 
-    @property
     def command_stats(self):
         stats = db_read(self.db, 'overall')
-        if len(self.current_players) == 0:
+        if len(self.current_players()) == 0:
             return "Еще никто не присоединился к игре."
         msg = 'Топ пидоров за все время:\n'
         for index, st in enumerate(stats):
@@ -128,4 +121,4 @@ class Game:
         return msg
 
     def run(self, request):
-        return self.commands[self.__check_command(request)]
+        return self.commands[self.__check_command(request)]()

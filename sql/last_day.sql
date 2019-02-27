@@ -1,1 +1,2 @@
-SELECT max(last_win), id FROM random_winners;
+SELECT max(last_win), id
+FROM random_winners;
